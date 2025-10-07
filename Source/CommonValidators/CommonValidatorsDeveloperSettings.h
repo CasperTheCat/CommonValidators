@@ -45,4 +45,12 @@ public:
 	//If true, we throw an error, otherwise a warning!
 	UPROPERTY(Config, EditAnywhere, meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))
 	bool bErrorHeavyReference = true;
+
+	// Classes in this list, and their children, are ignored by heavy reference validator
+	UPROPERTY(Config, EditAnywhere, meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))
+	TArray<TSubclassOf<UObject>> HeavyValidatorClassAndChildIgnoreList = {UAnimBlueprint::StaticClass()};
+
+	// Classes in this list, and only classes in this list, are ignored by heavy reference validator
+	UPROPERTY(Config, EditAnywhere, meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))
+	TMap<TSubclassOf<UObject>, TArray<TSubclassOf<UObject>>> HeavyValidatorClassSpecificClassIgnoreList;
 };

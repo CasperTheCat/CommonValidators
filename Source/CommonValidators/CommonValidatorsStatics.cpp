@@ -10,6 +10,18 @@
 #include "EdGraph/EdGraphNode.h"
 #include "ScopedTransaction.h"
 
+void UCommonValidatorsStatics::OpenBlueprint(UBlueprint* Blueprint)
+{
+	if (!Blueprint)
+	{
+		return;
+	}
+	
+	// Open the Blueprint editor (or bring it to front)
+	UAssetEditorSubsystem* AssetEditorSubsystem = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
+	AssetEditorSubsystem->OpenEditorForAsset(Blueprint);
+}
+
 void UCommonValidatorsStatics::OpenBlueprintAndFocusNode(UBlueprint* Blueprint, UEdGraph* Graph, UEdGraphNode* Node)
 {
     if (!Blueprint || !Graph || !Node) return;

@@ -14,6 +14,9 @@ class COMMONVALIDATORS_API UCommonValidatorsStatics : public UBlueprintFunctionL
 	GENERATED_BODY()
 
 public:
+	UFUNCTION()
+	static void OpenBlueprint(UBlueprint* Blueprint);
+	
     UFUNCTION()
     static void OpenBlueprintAndFocusNode(UBlueprint* Blueprint, UEdGraph* Graph, UEdGraphNode* Node);
 

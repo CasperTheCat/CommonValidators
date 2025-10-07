@@ -33,4 +33,16 @@ public:
 	//If true, we throw an error, otherwise a warning!
 	UPROPERTY(Config, EditAnywhere, meta = (EditCondition = "bEnableBlockingLoadValidator == true"))
 	bool bErrorBlockingLoad = true;
+
+	// If true, we will validate for references above the set value in blueprints
+	UPROPERTY(Config, EditAnywhere)
+	bool bEnableHeavyReferenceValidator = true;
+
+	// If the total size on disk is above this, we consider the asset heavy
+	UPROPERTY(Config, EditAnywhere, meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))
+	int MaximumAllowedReferenceSizeKiloBytes = 128;
+
+	//If true, we throw an error, otherwise a warning!
+	UPROPERTY(Config, EditAnywhere, meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))
+	bool bErrorHeavyReference = true;
 };

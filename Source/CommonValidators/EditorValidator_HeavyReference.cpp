@@ -19,7 +19,6 @@
 #include "CommonValidatorsStatics.h"
 
 
-
 #define LOCTEXT_NAMESPACE "CommonValidators"
 
 namespace UE::Internal::HeavyReferenceValidatorHelpers
@@ -51,17 +50,17 @@ bool UEditorValidator_HeavyReference::CanValidateAsset_Implementation(
 	// Check if we want to run validation here
 	// Remove any BPs that inherit from the classes in class and child list
 	{
-		const TArray<TSubclassOf<UObject>>& IgnoreChildrenList = GetDefault<UCommonValidatorsDeveloperSettings>()->HeavyValidatorClassAndChildIgnoreList;
+		const TArray<TSubclassOf<UObject>>& IgnoreChildrenList = GetDefault<UCommonValidatorsDeveloperSettings>()->
+			HeavyValidatorClassAndChildIgnoreList;
 		for (const TSubclassOf<UObject>& IgnoredChild : IgnoreChildrenList)
 		{
-			const UClass* const ParentClass = FBlueprintEditorUtils::FindFirstNativeClass(Blueprint->ParentClass);
-			if (Blueprint->IsA(IgnoredChild) || ParentClass->IsChildOf(IgnoredChild))
+			if (UCommonValidatorsStatics::IsObjectAChildOf(InObject, IgnoredChild))
 			{
 				return false;
 			}
 		}
 	}
-	
+
 	// Limit to BPs for now?
 	return true && InObject->IsA<UBlueprint>();
 }
@@ -79,11 +78,11 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 
 	// Remove any BPs that inherit from the classes in class and child list
 	{
-		const TArray<TSubclassOf<UObject>>& IgnoreChildrenList = GetDefault<UCommonValidatorsDeveloperSettings>()->HeavyValidatorClassAndChildIgnoreList;
+		const TArray<TSubclassOf<UObject>>& IgnoreChildrenList = GetDefault<UCommonValidatorsDeveloperSettings>()->
+			HeavyValidatorClassAndChildIgnoreList;
 		for (const TSubclassOf<UObject>& IgnoredChild : IgnoreChildrenList)
 		{
-			const UClass* const ParentClass = FBlueprintEditorUtils::FindFirstNativeClass(Blueprint->ParentClass);
-			if (Blueprint->IsA(IgnoredChild) || ParentClass->IsChildOf(IgnoredChild))
+			if (UCommonValidatorsStatics::IsObjectAChildOf(InAsset, IgnoredChild))
 			{
 				return EDataValidationResult::NotValidated;
 			}
@@ -94,16 +93,14 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 	TArray<TSubclassOf<UObject>, TInlineAllocator<4>> IgnoredClassList;
 	for (auto& ClassToIgnoreEntry : GetDefault<UCommonValidatorsDeveloperSettings>()->HeavyValidatorClassSpecificClassIgnoreList)
 	{
-		const UClass* const IgnoredClass = ClassToIgnoreEntry.Key;
-		
-		const UClass* const ParentClass = FBlueprintEditorUtils::FindFirstNativeClass(Blueprint->ParentClass);
-		if (Blueprint->IsA(IgnoredClass) || ParentClass->IsChildOf(IgnoredClass))
+		const TSubclassOf<UObject> IgnoredClass = ClassToIgnoreEntry.Key;
+
+		if (UCommonValidatorsStatics::IsObjectAChildOf(InAsset, IgnoredClass))
 		{
-			// These entries are valid for us
 			IgnoredClassList.Append(ClassToIgnoreEntry.Value.ClassList);
 		}
 	}
-	
+
 	const bool bShouldError = GetDefault<UCommonValidatorsDeveloperSettings>()->bErrorHeavyReference;
 
 	const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<
@@ -130,7 +127,7 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 	TArray<FAssetIdentifier> FoundAssetList;
 	FoundAssetList.Add(InAssetIdentifier);
 	uint64 TotalSize = 0;
-	
+
 	for (uint64 i = 0; i < FoundAssetList.Num(); i++)
 	{
 		const FAssetIdentifier& FoundAssetId = FoundAssetList[i];
@@ -184,15 +181,14 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 
 		// Ignore if this asset is in the ignore list
 		bool bIsReferenceIgnored = false;
-		for (const UClass* const IgnoreClass : IgnoredClassList)
+		for (const TSubclassOf<UObject>& IgnoreClass : IgnoredClassList)
 		{
 			// Needs to resolve BP class..
-			auto ThisAssetClass = ThisAssetData.GetClass();
-			if (ThisAssetClass->IsChildOf(IgnoreClass))
+			if (UCommonValidatorsStatics::IsAssetAChildOf(ThisAssetData, IgnoreClass))
 			{
 				bIsReferenceIgnored = true;
 			}
-			
+
 			//const UObject* GeneratedClassCDO = IsValid(AsBlueprint->GeneratedClass) ? AsBlueprint->GeneratedClass->GetDefaultObject() : nullptr;
 			//const null* const AsType = Cast<null>(GeneratedClassCDO);
 		}
@@ -238,37 +234,27 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 			// The TArray may have realloc'd and caused our pointer to invalidate at this point.
 			// FoundAssetId is now unsafe to use.
 			IAssetManagerEditorModule::Get().FilterAssetIdentifiersForCurrentRegistrySource(OutAssetData, DependencyQuery, true);
-						
+
 			FoundAssetList.Append(OutAssetData);
 		}
 	}
-	
+
 	if (TotalSize > GetDefault<UCommonValidatorsDeveloperSettings>()->MaximumAllowedReferenceSizeKiloBytes * 1024)
 	{
-		// Create a tokenized message with an action to open the Blueprint and focus the node
-		TSharedRef<FTokenizedMessage> TokenizedMessage = FTokenizedMessage::Create(
-			(bShouldError ? EMessageSeverity::Error : EMessageSeverity::Warning),
-			FText::Format(
-				LOCTEXT("CommonValidators.HeavyRef.AssetWarning", "Heavy references in asset {0}!"),
-				FText::FromString(InAssetIdentifier.ToString())
-				)
+		TSharedRef<FTokenizedMessage> ResultMessage = UCommonValidatorsStatics::CreateLinkedMessage(InAssetData,
+				FText::Format(
+					LOCTEXT("CommonValidators.HeavyRef.AssetWarning", "Heavy references in asset {0}! ({1})"),
+					FText::FromString(InAssetIdentifier.ToString()),
+					TotalSize
+					),
+				(bShouldError ? EMessageSeverity::Error : EMessageSeverity::PerformanceWarning)
 			);
-
-		TokenizedMessage->AddToken(FActionToken::Create(
-			LOCTEXT("CommonValidators.HeavyRef.OpenBlueprint", "Open Blueprint"),
-			LOCTEXT("CommonValidators.HeavyRef.OpenBlueprintDesc", "Open Blueprint"),
-			FOnActionTokenExecuted::CreateLambda([Blueprint]()
-			{
-				UCommonValidatorsStatics::OpenBlueprint(Blueprint);
-			}),
-			false
-			));
-
-		Context.AddMessage(TokenizedMessage);
+		
+		Context.AddMessage(ResultMessage);
 
 		return bShouldError ? EDataValidationResult::Invalid : EDataValidationResult::Valid;
 	}
-	
+
 	return EDataValidationResult::Valid;
 }
 

@@ -24,5 +24,10 @@ public:
     static void DeleteNodeFromBlueprint(UBlueprint* Blueprint, UEdGraph* Graph, UEdGraphNode* Node);
 
 	UFUNCTION()
-	static bool IsObjectAChildOf(UObject* AnyAssetReference, TSubclassOf<UObject> ObjectClass);
+	static bool IsObjectAChildOf(const UObject* const AnyAssetReference, const TSubclassOf<UObject> ObjectClass);
+
+	UFUNCTION()
+	static bool IsAssetAChildOf(const FAssetData& AnyAssetReference, const TSubclassOf<UObject> ObjectClass);
+	
+	static TSharedRef<FTokenizedMessage> CreateLinkedMessage(const FAssetData& InAssetData, const FText& Text, EMessageSeverity::Type Severity);
 };

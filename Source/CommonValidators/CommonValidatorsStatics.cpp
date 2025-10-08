@@ -1,15 +1,16 @@
-#include "CommonValidatorsStatics.h"
-#include "Kismet2/BlueprintEditorUtils.h"
-#include "Toolkits/AssetEditorToolkit.h"
-#include "Kismet2/KismetEditorUtilities.h"
-#include "BlueprintEditorModule.h"
-#include "Subsystems/AssetEditorSubsystem.h"
-#include "IAssetTools.h"
 
+// Translation Unit
+#include "CommonValidatorsStatics.h"
+
+// Unreal
+#include "BlueprintEditorModule.h"
+#include "ScopedTransaction.h"
+#include "AssetRegistry/AssetDataToken.h"
 #include "EdGraph/EdGraph.h"
 #include "EdGraph/EdGraphNode.h"
-#include "ScopedTransaction.h"
-#include "UObject/GarbageCollectionSchema.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Subsystems/AssetEditorSubsystem.h"
+#include "Toolkits/AssetEditorToolkit.h"
 
 void UCommonValidatorsStatics::OpenBlueprint(UBlueprint* Blueprint)
 {
@@ -66,7 +67,7 @@ void UCommonValidatorsStatics::DeleteNodeFromBlueprint(UBlueprint* Blueprint, UE
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 }
 
-bool UCommonValidatorsStatics::IsObjectAChildOf(UObject* AnyAssetReference, TSubclassOf<UObject> ObjectClass)
+bool UCommonValidatorsStatics::IsObjectAChildOf(const UObject* const AnyAssetReference, const TSubclassOf<UObject> ObjectClass)
 {
 	if (!IsValid(AnyAssetReference))
 	{
@@ -77,7 +78,7 @@ bool UCommonValidatorsStatics::IsObjectAChildOf(UObject* AnyAssetReference, TSub
 	if (AnyAssetReference->IsA(UBlueprint::StaticClass()))
 	{
 		// This asset may need converted to first native class unless ObjectClass is also a BP
-		UBlueprint* Blueprint = Cast<UBlueprint>(AnyAssetReference);
+		const UBlueprint* const Blueprint = Cast<UBlueprint>(AnyAssetReference);
 		if (!IsValid(Blueprint))
 		{
 			return false;
@@ -94,4 +95,52 @@ bool UCommonValidatorsStatics::IsObjectAChildOf(UObject* AnyAssetReference, TSub
 	// For non-BPs, this is correct.
 	// For BPs, this works to catch ObjectClass being a child of UBlueprint, such as UAnimBlueprint.
 	return AnyAssetReference->IsA(ObjectClass);
+}
+
+bool UCommonValidatorsStatics::IsAssetAChildOf(const FAssetData& AnyAssetReference, const TSubclassOf<UObject> ObjectClass)
+{
+	// We can do a compare natively for AssetData, but if it returns Blueprint, then we have more work to do
+	const UClass* const AssetClass = AnyAssetReference.GetClass();
+	if (!IsValid(AssetClass))
+	{
+		return false;
+	}
+
+	// Early out for native classes
+	if (AssetClass->IsChildOf(ObjectClass))
+	{
+		return true;
+	}
+
+	if (AssetClass->IsChildOf(UBlueprint::StaticClass()))
+	{
+		// Get AssetClass CDO
+		const UObject* const LoadedAsset = AnyAssetReference.GetAsset();
+		const UBlueprint* const Blueprint = Cast<UBlueprint>(LoadedAsset);
+		if (IsValid(Blueprint))
+		{
+			const UObject* GeneratedClassCDO = IsValid(Blueprint->GeneratedClass) ? Blueprint->GeneratedClass->GetDefaultObject() : nullptr;
+			return IsObjectAChildOf(GeneratedClassCDO, ObjectClass);
+		}
+		
+		//null* const AsType = Cast<null>(GeneratedClassCDO);
+	}
+
+	return false;
+}
+
+TSharedRef<FTokenizedMessage> UCommonValidatorsStatics::CreateLinkedMessage(const FAssetData& InAssetData, const FText& Text,
+	EMessageSeverity::Type Severity)
+{
+	// Blank Message
+	TSharedRef<FTokenizedMessage> TokenizedMessage = FTokenizedMessage::Create(Severity,FText());
+
+	TokenizedMessage->AddToken(FAssetDataToken::Create(InAssetData));
+
+	if(!Text.IsEmpty())
+	{
+		TokenizedMessage->AddToken( FTextToken::Create(Text) );
+	}
+
+	return TokenizedMessage;
 }

@@ -88,19 +88,7 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 			}
 		}
 	}
-
-	// Gather Specific Ref Classes to ignore
-	TArray<TSubclassOf<UObject>, TInlineAllocator<4>> IgnoredClassList;
-	for (auto& ClassToIgnoreEntry : GetDefault<UCommonValidatorsDeveloperSettings>()->HeavyValidatorClassSpecificClassIgnoreList)
-	{
-		const TSubclassOf<UObject> IgnoredClass = ClassToIgnoreEntry.Key;
-
-		if (UCommonValidatorsStatics::IsObjectAChildOf(InAsset, IgnoredClass))
-		{
-			IgnoredClassList.Append(ClassToIgnoreEntry.Value.ClassList);
-		}
-	}
-
+	
 	const bool bShouldError = GetDefault<UCommonValidatorsDeveloperSettings>()->bErrorHeavyReference;
 
 	const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<
@@ -177,6 +165,23 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 		else
 		{
 			ThisAssetData = IAssetManagerEditorModule::CreateFakeAssetDataFromPrimaryAssetId(AssetPrimaryId);
+		}
+		
+		// Gather Specific Ref Classes to ignore for the root asset
+		TArray<TSubclassOf<UObject>, TInlineAllocator<8>> IgnoredClassList;
+		for (auto& ClassToIgnoreEntry : GetDefault<UCommonValidatorsDeveloperSettings>()->HeavyValidatorClassSpecificClassIgnoreList)
+		{
+			// Does this apply to this asset?
+			// Allowed on the root (idx0) and if propagation is set.
+			if (i == 0 || ClassToIgnoreEntry.Value.AllowPropagationToChildren)
+			{
+				const TSubclassOf<UObject> IgnoredClass = ClassToIgnoreEntry.Key;
+
+				if (UCommonValidatorsStatics::IsObjectAChildOf(InAsset, IgnoredClass))
+				{
+					IgnoredClassList.Append(ClassToIgnoreEntry.Value.ClassList);
+				}
+			}
 		}
 
 		// Ignore if this asset is in the ignore list

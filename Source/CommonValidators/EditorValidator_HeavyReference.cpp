@@ -1,22 +1,24 @@
+// Copyright Notice
+// Author
+
+// This Header
 #include "EditorValidator_HeavyReference.h"
 
-#include "Engine/Blueprint.h"
-#include "Misc/DataValidation.h"
-#include "EdGraph/EdGraph.h"
-#include "EdGraph/EdGraphNode.h"
-#include "EdGraphSchema_K2.h"
-#include "K2Node_CallFunction.h"
-#include "K2Node_BreakStruct.h"
-#include "K2Node_Variable.h"
-#include "CommonValidatorsStatics.h"
-#include "CommonValidatorsDeveloperSettings.h"
-#include "K2Node.h"
-#include "AssetRegistry/AssetRegistryModule.h"
+// Unreal
 #include "AssetManagerEditor/Public/AssetManagerEditorModule.h"
-#include <K2Node_DynamicCast.h>
-#include <K2Node_LoadAsset.h>
-
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "Engine/AssetManager.h"
+#include "Engine/Blueprint.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Misc/DataValidation.h"
+
+// Project
+
+// Local
+#include "CommonValidatorsDeveloperSettings.h"
+#include "CommonValidatorsStatics.h"
+
+
 
 #define LOCTEXT_NAMESPACE "CommonValidators"
 
@@ -29,31 +31,74 @@ bool UEditorValidator_HeavyReference::CanValidateAsset_Implementation(
 	UObject* InObject,
 	FDataValidationContext& InContext) const
 {
-	bool bIsValidatorEnabled = GetDefault<UCommonValidatorsDeveloperSettings>()->bEnableHeavyReferenceValidator;
-	return bIsValidatorEnabled && (InObject != nullptr) && InObject->IsA<UBlueprint>();
+	if (!IsValid(InObject))
+	{
+		return false;
+	}
+
+	// Early out to prevent chewing CPU time when not enabled
+	if (!GetDefault<UCommonValidatorsDeveloperSettings>()->bEnableHeavyReferenceValidator)
+	{
+		return false;
+	}
+
+	UBlueprint* Blueprint = Cast<UBlueprint>(InObject);
+	if (!IsValid(Blueprint))
+	{
+		return false;
+	}
+
+	// Check if we want to run validation here
+	// Remove any BPs that inherit from the classes in class and child list
+	{
+		const TArray<TSubclassOf<UObject>>& IgnoreChildrenList = GetDefault<UCommonValidatorsDeveloperSettings>()->HeavyValidatorClassAndChildIgnoreList;
+		for (const TSubclassOf<UObject>& IgnoredChild : IgnoreChildrenList)
+		{
+			if (InObject->IsA(IgnoredChild))
+			{
+				return false;
+			}
+		}
+	}
+	
+	// Limit to BPs for now?
+	return true && InObject->IsA<UBlueprint>();
 }
 
 
 EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Implementation(const FAssetData& InAssetData, UObject* InAsset,
                                                                                           FDataValidationContext& Context)
 {
+	// Ignore non-BP types
 	UBlueprint* Blueprint = Cast<UBlueprint>(InAsset);
 	if (Blueprint == nullptr)
 	{
 		return EDataValidationResult::NotValidated;
 	}
-	bool bFoundBadNode = false;
+
+	// Remove any BPs that inherit from the classes in class and child list
+	{
+		const TArray<TSubclassOf<UObject>>& IgnoreChildrenList = GetDefault<UCommonValidatorsDeveloperSettings>()->HeavyValidatorClassAndChildIgnoreList;
+		for (const TSubclassOf<UObject>& IgnoredChild : IgnoreChildrenList)
+		{
+			if (Blueprint->IsA(IgnoredChild))
+			{
+				return EDataValidationResult::NotValidated;
+			}
+		}
+	}
+	
 	const bool bShouldError = GetDefault<UCommonValidatorsDeveloperSettings>()->bErrorHeavyReference;
 
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<
+	const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<
 		FAssetRegistryModule>("AssetRegistry");
 	IAssetRegistry* AssetReg = &AssetRegistryModule.Get();
 
-	IAssetManagerEditorModule& ManagerEditorModule = IAssetManagerEditorModule::Get();
-	IAssetRegistry* const AssetRegistry = &AssetRegistryModule.Get();
-	UAssetManager* const AssetManager = &UAssetManager::Get();
+	//const IAssetManagerEditorModule& ManagerEditorModule = IAssetManagerEditorModule::Get();
+	//IAssetRegistry* const AssetRegistry = &AssetRegistryModule.Get();
+	//UAssetManager* const AssetManager = &UAssetManager::Get();
 	IAssetManagerEditorModule* const EditorModule = &IAssetManagerEditorModule::Get();
-	const FAssetManagerEditorRegistrySource* const AssetRegistrySource = EditorModule->GetCurrentRegistrySource(false);
+	//const FAssetManagerEditorRegistrySource* const AssetRegistrySource = EditorModule->GetCurrentRegistrySource(false);
 
 	FAssetIdentifier InAssetIdentifier;
 	{
@@ -73,10 +118,8 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 	TSet<FAssetIdentifier> VisitList;
 	TArray<FAssetIdentifier> FoundAssetList;
 	FoundAssetList.Add(InAssetIdentifier);
-
 	uint64 TotalSize = 0;
-	//TotalSize += GatherAssetSize(VisitedAssetIdentifiers, RootAsset);
-
+	
 	for (uint64 i = 0; i < FoundAssetList.Num(); i++)
 	{
 		const FAssetIdentifier& FoundAssetId = FoundAssetList[i];
@@ -116,7 +159,7 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 			ThisAssetData.AssetClassPath = FTopLevelAssetPath(TEXT("/None"), TEXT("MissingAsset"));
 
 			const FString AssetPathString = AssetPackageNameString + TEXT(".") + FPackageName::GetLongPackageAssetName(AssetPackageNameString);
-			FAssetData FoundData = AssetRegistrySource->GetAssetByObjectPath(FSoftObjectPath(AssetPathString));
+			FAssetData FoundData = AssetReg->GetAssetByObjectPath(FSoftObjectPath(AssetPathString));
 
 			if (FoundData.IsValid())
 			{
@@ -151,7 +194,7 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 			if (AssetPackageName != NAME_None && i > 0)
 			{
 				int64 FoundSize = 0;
-				if (EditorModule->GetIntegerValueForCustomColumn(ThisAssetData, IAssetManagerEditorModule::DiskSizeName, FoundSize))
+				if (EditorModule->GetIntegerValueForCustomColumn(ThisAssetData, IAssetManagerEditorModule::ResourceSizeName, FoundSize))
 				{
 					TotalSize += FoundSize;
 				}
@@ -174,8 +217,7 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 			IAssetManagerEditorModule::Get().FilterAssetIdentifiersForCurrentRegistrySource(OutAssetData, DependencyQuery, true);
 		}
 	}
-
-
+	
 	if (TotalSize > GetDefault<UCommonValidatorsDeveloperSettings>()->MaximumAllowedReferenceSizeKiloBytes * 1024)
 	{
 		// Create a tokenized message with an action to open the Blueprint and focus the node
@@ -201,103 +243,7 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 
 		return bShouldError ? EDataValidationResult::Invalid : EDataValidationResult::Valid;
 	}
-
-
-	TArray<UEdGraph*> AllGraphs;
-	AllGraphs.Append(Blueprint->FunctionGraphs);
-	AllGraphs.Append(Blueprint->UbergraphPages);
-
-
-	for (FBPVariableDescription& Variable : Blueprint->NewVariables)
-	{
-		auto Intro = Variable.VarType;
-		if (Intro.bIsWeakPointer)
-		{
-			UE_LOG(LogTemp, Display, TEXT("WEAK"));
-		}
-
-		TWeakObjectPtr<UObject> VarType2 = Intro.PinValueType.TerminalSubCategoryObject;
-
-		TWeakObjectPtr<UObject> VarType = Variable.VarType.PinSubCategoryObject;
-
-		if (VarType.IsValid())
-		{
-			UE_LOG(LogTemp, Display, TEXT("%s"), *VarType->GetFullName());
-		}
-
-		// If this var type is heavy, report it
-		//UE_LOG(LogTemp, Display, TEXT("%s"), *VarType->StaticClass()->GetFullName());
-
-		//UE_LOG(LogTemp, Display, TEXT("%s"), *VarType2->StaticClass()->GetFullName());
-	}
-
-	for (UEdGraph* Graph : AllGraphs)
-	{
-		for (UEdGraphNode* Node : Graph->Nodes)
-		{
-			// Can this node contain a class reference?
-			if (Node->IsA<UK2Node_Variable>())
-			{
-				// Can we get the BP type reference
-				auto T = Cast<UK2Node_Variable>(Node);
-			}
-
-
-			// Dynamic Casts
-			if (Node->IsA<UK2Node_DynamicCast>())
-			{
-				// Can we get the BP type reference
-				UK2Node_DynamicCast* DynamicCast = Cast<UK2Node_DynamicCast>(Node);
-				if (DynamicCast)
-				{
-					TSubclassOf<UObject> TargetType = DynamicCast->TargetType;
-					UE_LOG(LogTemp, Display, TEXT("%s"), *TargetType->GetFullName());
-				}
-			}
-
-			//// Dynamic Casts
-			//if (Node->IsA<UK2Node_LoadAsset>())
-			//{
-			//	// Can we get the BP type reference
-			//	UK2Node_LoadAsset* AssetLoad = Cast<UK2Node_LoadAsset>(Node);
-			//	if (AssetLoad)
-			//	{
-			//		TSubclassOf<UObject> TargetType = DynamicCast->TargetType;
-			//	}
-			//}
-
-
-			//FReferenceCollector RC;
-			////UK2Node_CallFunction D;
-			//AddReferencedObjects(Node, RC);
-
-			//         if (Node->IsA<UK2Node_BreakStruct>())
-			//         {
-			//             continue;
-			//         }
-
-			//         UK2Node_CallFunction* CallNode = Cast<UK2Node_CallFunction>(Node);
-			//         if (CallNode == nullptr)
-			//         {
-			//             continue;
-			//         }
-
-			//if (UFunction* TargetFunc = CallNode->GetTargetFunction())
-			//{
-			//	if (TargetFunc->HasMetaData(TEXT("NativeBreakFunc")) ||
-			//		TargetFunc->HasMetaData(TEXT("NativeMakeFunc")))
-			//	{
-			//		continue;
-			//	}
-			//}
-		}
-	}
-
-	if (bShouldError && bFoundBadNode)
-	{
-		return EDataValidationResult::Invalid;
-	}
-
+	
 	return EDataValidationResult::Valid;
 }
 

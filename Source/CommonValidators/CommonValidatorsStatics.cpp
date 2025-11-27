@@ -9,6 +9,7 @@
 #include "EdGraph/EdGraph.h"
 #include "EdGraph/EdGraphNode.h"
 #include "ScopedTransaction.h"
+#include "UObject/GarbageCollectionSchema.h"
 
 void UCommonValidatorsStatics::OpenBlueprint(UBlueprint* Blueprint)
 {
@@ -63,4 +64,34 @@ void UCommonValidatorsStatics::DeleteNodeFromBlueprint(UBlueprint* Blueprint, UE
 
     // Mark Blueprint as structurally modified (will trigger recompilation)
     FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
+}
+
+bool UCommonValidatorsStatics::IsObjectAChildOf(UObject* AnyAssetReference, TSubclassOf<UObject> ObjectClass)
+{
+	if (!IsValid(AnyAssetReference))
+	{
+		return false;
+	}
+
+	// Blueprint assets derive from UBlueprint first, so IsA won't work directly
+	if (AnyAssetReference->IsA(UBlueprint::StaticClass()))
+	{
+		// This asset may need converted to first native class unless ObjectClass is also a BP
+		UBlueprint* Blueprint = Cast<UBlueprint>(AnyAssetReference);
+		if (!IsValid(Blueprint))
+		{
+			return false;
+		}
+		
+		const UClass* const ParentClass = FBlueprintEditorUtils::FindFirstNativeClass(Blueprint->ParentClass);
+		if (ParentClass->IsChildOf(ObjectClass))
+		{
+			return true;
+		}
+	}
+
+	// Comparing actual classes
+	// For non-BPs, this is correct.
+	// For BPs, this works to catch ObjectClass being a child of UBlueprint, such as UAnimBlueprint.
+	return AnyAssetReference->IsA(ObjectClass);
 }

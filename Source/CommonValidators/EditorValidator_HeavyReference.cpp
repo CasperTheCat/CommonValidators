@@ -54,7 +54,8 @@ bool UEditorValidator_HeavyReference::CanValidateAsset_Implementation(
 		const TArray<TSubclassOf<UObject>>& IgnoreChildrenList = GetDefault<UCommonValidatorsDeveloperSettings>()->HeavyValidatorClassAndChildIgnoreList;
 		for (const TSubclassOf<UObject>& IgnoredChild : IgnoreChildrenList)
 		{
-			if (InObject->IsA(IgnoredChild))
+			const UClass* const ParentClass = FBlueprintEditorUtils::FindFirstNativeClass(Blueprint->ParentClass);
+			if (Blueprint->IsA(IgnoredChild) || ParentClass->IsChildOf(IgnoredChild))
 			{
 				return false;
 			}
@@ -71,7 +72,7 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 {
 	// Ignore non-BP types
 	UBlueprint* Blueprint = Cast<UBlueprint>(InAsset);
-	if (Blueprint == nullptr)
+	if (!IsValid(Blueprint))
 	{
 		return EDataValidationResult::NotValidated;
 	}
@@ -81,10 +82,25 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 		const TArray<TSubclassOf<UObject>>& IgnoreChildrenList = GetDefault<UCommonValidatorsDeveloperSettings>()->HeavyValidatorClassAndChildIgnoreList;
 		for (const TSubclassOf<UObject>& IgnoredChild : IgnoreChildrenList)
 		{
-			if (Blueprint->IsA(IgnoredChild))
+			const UClass* const ParentClass = FBlueprintEditorUtils::FindFirstNativeClass(Blueprint->ParentClass);
+			if (Blueprint->IsA(IgnoredChild) || ParentClass->IsChildOf(IgnoredChild))
 			{
 				return EDataValidationResult::NotValidated;
 			}
+		}
+	}
+
+	// Gather Specific Ref Classes to ignore
+	TArray<TSubclassOf<UObject>, TInlineAllocator<4>> IgnoredClassList;
+	for (auto& ClassToIgnoreEntry : GetDefault<UCommonValidatorsDeveloperSettings>()->HeavyValidatorClassSpecificClassIgnoreList)
+	{
+		const UClass* const IgnoredClass = ClassToIgnoreEntry.Key;
+		
+		const UClass* const ParentClass = FBlueprintEditorUtils::FindFirstNativeClass(Blueprint->ParentClass);
+		if (Blueprint->IsA(IgnoredClass) || ParentClass->IsChildOf(IgnoredClass))
+		{
+			// These entries are valid for us
+			IgnoredClassList.Append(ClassToIgnoreEntry.Value.ClassList);
 		}
 	}
 	
@@ -92,13 +108,8 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 
 	const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<
 		FAssetRegistryModule>("AssetRegistry");
-	IAssetRegistry* AssetReg = &AssetRegistryModule.Get();
-
-	//const IAssetManagerEditorModule& ManagerEditorModule = IAssetManagerEditorModule::Get();
-	//IAssetRegistry* const AssetRegistry = &AssetRegistryModule.Get();
-	//UAssetManager* const AssetManager = &UAssetManager::Get();
+	IAssetRegistry* const AssetReg = &AssetRegistryModule.Get();
 	IAssetManagerEditorModule* const EditorModule = &IAssetManagerEditorModule::Get();
-	//const FAssetManagerEditorRegistrySource* const AssetRegistrySource = EditorModule->GetCurrentRegistrySource(false);
 
 	FAssetIdentifier InAssetIdentifier;
 	{
@@ -171,8 +182,23 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 			ThisAssetData = IAssetManagerEditorModule::CreateFakeAssetDataFromPrimaryAssetId(AssetPrimaryId);
 		}
 
+		// Ignore if this asset is in the ignore list
+		bool bIsReferenceIgnored = false;
+		for (const UClass* const IgnoreClass : IgnoredClassList)
+		{
+			// Needs to resolve BP class..
+			auto ThisAssetClass = ThisAssetData.GetClass();
+			if (ThisAssetClass->IsChildOf(IgnoreClass))
+			{
+				bIsReferenceIgnored = true;
+			}
+			
+			//const UObject* GeneratedClassCDO = IsValid(AsBlueprint->GeneratedClass) ? AsBlueprint->GeneratedClass->GetDefaultObject() : nullptr;
+			//const null* const AsType = Cast<null>(GeneratedClassCDO);
+		}
+
 		// Go for asset sizing
-		if (ThisAssetData.IsValid())
+		if (ThisAssetData.IsValid() && !bIsReferenceIgnored)
 		{
 			FAssetManagerDependencyQuery DependencyQuery = FAssetManagerDependencyQuery::None();
 			DependencyQuery.Flags = UE::AssetRegistry::EDependencyQuery::Game;
@@ -212,9 +238,8 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 			// The TArray may have realloc'd and caused our pointer to invalidate at this point.
 			// FoundAssetId is now unsafe to use.
 			IAssetManagerEditorModule::Get().FilterAssetIdentifiersForCurrentRegistrySource(OutAssetData, DependencyQuery, true);
+						
 			FoundAssetList.Append(OutAssetData);
-
-			IAssetManagerEditorModule::Get().FilterAssetIdentifiersForCurrentRegistrySource(OutAssetData, DependencyQuery, true);
 		}
 	}
 	

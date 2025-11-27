@@ -4,6 +4,15 @@
 
 #include "CommonValidatorsDeveloperSettings.generated.h"
 
+USTRUCT(BlueprintType)
+struct FCommonValidatorClassArray
+{
+	GENERATED_BODY()
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	TArray<TSubclassOf<UObject>> ClassList;
+};
+
 UCLASS(config = Editor, defaultconfig, meta = (DisplayName = "Common Validators"))
 class COMMONVALIDATORS_API UCommonValidatorsDeveloperSettings : public UDeveloperSettings
 {
@@ -52,5 +61,5 @@ public:
 
 	// Classes in this list, and only classes in this list, are ignored by heavy reference validator
 	UPROPERTY(Config, EditAnywhere, meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))
-	TMap<TSubclassOf<UObject>, TArray<TSubclassOf<UObject>>> HeavyValidatorClassSpecificClassIgnoreList;
+	TMap<TSubclassOf<UObject>, FCommonValidatorClassArray> HeavyValidatorClassSpecificClassIgnoreList;
 };

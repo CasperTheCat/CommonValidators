@@ -22,4 +22,7 @@ public:
 
     UFUNCTION()
     static void DeleteNodeFromBlueprint(UBlueprint* Blueprint, UEdGraph* Graph, UEdGraphNode* Node);
+
+	UFUNCTION()
+	static bool IsObjectAChildOf(UObject* AnyAssetReference, TSubclassOf<UObject> ObjectClass);
 };

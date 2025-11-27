@@ -52,8 +52,8 @@ public:
 	bool bEnableHeavyReferenceValidator = true;
 
 	// If the total size on disk is above this, we consider the asset heavy
-	UPROPERTY(Config, EditAnywhere, meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))
-	int MaximumAllowedReferenceSizeKiloBytes = 128;
+	UPROPERTY(Config, EditAnywhere, Category="Common Validators", meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))
+	int MaximumAllowedReferenceSizeKiloBytes = 20480;
 
 	//If true, we throw an error, otherwise a warning!
 	UPROPERTY(Config, EditAnywhere, meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))

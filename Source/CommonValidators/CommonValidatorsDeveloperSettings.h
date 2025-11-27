@@ -11,6 +11,10 @@ struct FCommonValidatorClassArray
 	
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
 	TArray<TSubclassOf<UObject>> ClassList;
+
+	// Should this rule propagate to discovered children?
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	bool AllowPropagationToChildren = true;
 };
 
 UCLASS(config = Editor, defaultconfig, meta = (DisplayName = "Common Validators"))
@@ -53,7 +57,7 @@ public:
 
 	//If true, we throw an error, otherwise a warning!
 	UPROPERTY(Config, EditAnywhere, meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))
-	bool bErrorHeavyReference = true;
+	bool bErrorHeavyReference = false;
 
 	// Classes in this list, and their children, are ignored by heavy reference validator
 	UPROPERTY(Config, EditAnywhere, meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))

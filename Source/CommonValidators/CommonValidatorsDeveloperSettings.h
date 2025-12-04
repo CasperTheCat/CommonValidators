@@ -13,11 +13,7 @@ struct FCommonValidatorClassArray
 	TArray<TSubclassOf<UObject>> ClassList;
 
 	// Should this rule propagate to discovered children?
-<<<<<<< HEAD
-	UPROPERTY(BlueprintReadWrite, EditAnywhere)
-=======
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Common Validators")
->>>>>>> ecc3dc6 (Adding Categories to allow Engine Pluginisation and moving the ignore lower to catch child assets)
 	bool AllowPropagationToChildren = true;
 };
 
@@ -59,9 +55,9 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category="Common Validators", meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))
 	int MaximumAllowedReferenceSizeKiloBytes = 20480;
 
-	//If true, we throw an error, otherwise a warning!
+	// Whether an inability to gather the size of a child asset is an error
 	UPROPERTY(Config, EditAnywhere, Category="Common Validators", meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))
-	int MaximumAllowedReferenceSizeKiloBytes = 128;
+	bool bErrorOnUnsizableChildren = true;
 
 	//If true, we throw an error, otherwise a warning!
 	UPROPERTY(Config, EditAnywhere, Category="Common Validators", meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))

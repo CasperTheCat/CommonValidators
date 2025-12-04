@@ -228,7 +228,7 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 							FText::Format(
 								LOCTEXT("CommonValidators.HeavyRef.AssetWarning", "Failed to get memory size for {0}! ({1})"),
 								FText::FromString(FoundAssetId.ToString()),
-								AssetPackageNameString
+								FText::FromString(AssetPackageNameString)
 								),
 							(bShouldError ? EMessageSeverity::Error : EMessageSeverity::PerformanceWarning)
 						);

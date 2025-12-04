@@ -139,7 +139,6 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 		// Only support packages and primary assets
 		if (AssetPackageName == NAME_None && !AssetPrimaryId.IsValid())
 		{
-			UE_LOG(LogTemp, Verbose, TEXT("Asset not including in size: %s"), *FoundAssetId.PackageName.ToString())
 			continue;
 		}
 

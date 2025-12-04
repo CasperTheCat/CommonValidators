@@ -18,6 +18,8 @@
 #include "CommonValidatorsDeveloperSettings.h"
 #include "CommonValidatorsStatics.h"
 
+// Gen CPP
+#include UE_INLINE_GENERATED_CPP_BY_NAME(EditorValidator_HeavyReference)
 
 #define LOCTEXT_NAMESPACE "CommonValidators"
 
@@ -222,7 +224,7 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 				{
 					TotalSize += FoundSize;
 				}
-				else if (DevSettings->bErrorOnUnsizableChildren)
+				else if (DevSettings->bWarnOnUnsizableChildren)
 				{
 					TSharedRef<FTokenizedMessage> ResultMessage = UCommonValidatorsStatics::CreateLinkedMessage(InAssetData,
 							FText::Format(
@@ -230,7 +232,7 @@ EDataValidationResult UEditorValidator_HeavyReference::ValidateLoadedAsset_Imple
 								FText::FromString(FoundAssetId.ToString()),
 								FText::FromString(AssetPackageNameString)
 								),
-							(bShouldError ? EMessageSeverity::Error : EMessageSeverity::PerformanceWarning)
+							EMessageSeverity::Warning
 						);
 					
 					Context.AddMessage(ResultMessage);

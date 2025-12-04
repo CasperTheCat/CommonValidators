@@ -55,9 +55,10 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category="Common Validators", meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))
 	int MaximumAllowedReferenceSizeKiloBytes = 20480;
 
-	// Whether an inability to gather the size of a child asset is an error
+	// Whether an inability to gather the size of a child asset is an warning
+	// This will prevent further context messages in most cases
 	UPROPERTY(Config, EditAnywhere, Category="Common Validators", meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))
-	bool bErrorOnUnsizableChildren = true;
+	bool bWarnOnUnsizableChildren = false;
 
 	//If true, we throw an error, otherwise a warning!
 	UPROPERTY(Config, EditAnywhere, Category="Common Validators", meta = (EditCondition = "bEnableHeavyReferenceValidator == true"))

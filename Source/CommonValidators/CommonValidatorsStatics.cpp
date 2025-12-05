@@ -128,8 +128,6 @@ bool UCommonValidatorsStatics::IsAssetAChildOf(const FAssetData& AnyAssetReferen
 			const UObject* GeneratedClassCDO = IsValid(Blueprint->GeneratedClass) ? Blueprint->GeneratedClass->GetDefaultObject() : nullptr;
 			return IsObjectAChildOf(GeneratedClassCDO, ObjectClass);
 		}
-		
-		//null* const AsType = Cast<null>(GeneratedClassCDO);
 	}
 
 	return false;
